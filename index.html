@@ -2,7 +2,55 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Онлайн голосование</title>
+  <title>Голосование онлайн — Выберите тему</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      background: #f8fafc;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color:#233;
+      margin:20px;
+    }
+    h2,h3 {margin-top:1.2em;}
+    #themes {display: flex; flex-wrap: wrap; gap: 14px; justify-content: center;}
+    .theme-card {
+      background: #fff;
+      border-radius: 13px;
+      box-shadow: 0 2px 16px #e6e9ee75;
+      padding: 20px 30px;
+      font-size: 1.1em;
+      cursor:pointer;
+      min-width:220px;
+      transition: box-shadow 0.15s;
+      border: 2px solid #e3e8f7;
+      text-align:center;
+    }
+    .theme-card:hover {
+      box-shadow: 0 4px 28px #b7bcc6a0;
+      border:2px solid #38bdf8;
+    }
+    #confirmMsg {text-align:center; margin-top:18px; font-size:1.15em; color:#38bdf8;}
+    .results-bar {
+      background: #e3e8f7;
+      border-radius:10px;
+      height:22px;
+      margin-bottom:7px;
+      overflow:hidden;
+      display: flex;
+      align-items:center;
+    }
+    .bar-inner {
+      background: #38bdf8;
+      color: white;
+      font-weight:bold;
+      height:100%;
+      padding-left:9px;
+      border-radius:10px;
+      transition: width 0.4s;
+      display: flex;
+      align-items: center;
+    }
+  </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
@@ -19,65 +67,91 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    let themes = [];
     let endTime = 0;
-    function setThemes(themes) {
-      const cont = document.getElementById("themes");
-      cont.innerHTML = "";
+    let voted = localStorage.getItem("voted") === "true";
+
+    function renderThemes() {
+      const container = document.getElementById("themes");
+      container.innerHTML = "";
+      if (voted) {
+        document.getElementById("confirmMsg").textContent = "Спасибо! Ваш голос учтен.";
+        return;
+      }
+      // Таймер
+      if (Date.now() > endTime && endTime > 0) {
+        container.innerHTML = "<b>Время голосования истекло</b>";
+        return;
+      }
       themes.forEach((theme, idx) => {
-        let btn = document.createElement("button");
-        btn.innerText = theme;
-        btn.onclick = () => vote(idx);
-        cont.appendChild(btn);
+        let card = document.createElement("div");
+        card.className = "theme-card";
+        card.textContent = theme;
+        card.onclick = () => vote(idx);
+        container.appendChild(card);
       });
+      document.getElementById("confirmMsg").textContent = "";
     }
 
-    function checkVoting() {
-      if (Date.now() > endTime) {
-        document.getElementById("themes").innerHTML = "<b>Время голосования истекло</b>";
-      }
-    }
     function vote(idx) {
-      if (Date.now() > endTime) return alert("Время голосования истекло!");
-      // Можно добавить защиту от повторов по localStorage
-      get(ref(db, 'votes/' + idx)).then(snapshot => {
+      if (voted) return;
+      if (Date.now() > endTime && endTime > 0) return;
+      get(ref(db, "votes/" + idx)).then(snapshot => {
         let cnt = snapshot.exists() ? snapshot.val() : 0;
         set(ref(db, "votes/" + idx), cnt + 1);
       });
       localStorage.setItem("voted", "true");
-      document.getElementById("themes").innerHTML = "Спасибо за голос!";
+      voted = true;
+      renderThemes();
     }
 
     function renderResults() {
-      const res = document.getElementById("results");
-      get(ref(db, "votes")).then(snap => {
-        let arr = snap.exists() ? snap.val() : [];
-        let out = "";
-        themes.forEach((t, i) => {
-          out += `<div>${t}: ${arr[i] || 0}</div>`;
-        });
-        res.innerHTML = out;
+      get(ref(db, "votes")).then(votesSnap => {
+        let votesArr = votesSnap.exists() ? votesSnap.val() : [];
+        const container = document.getElementById("results");
+        container.innerHTML = "";
+        // Подсчитать итог
+        let total = 0;
+        for (let i = 0; i < themes.length; ++i) total += votesArr[i] || 0;
+        for (let i = 0; i < themes.length; ++i) {
+          let val = votesArr[i] || 0;
+          let percent = total ? Math.round(val * 100 / total) : 0;
+          let bar = document.createElement("div");
+          bar.className = "results-bar";
+          let barInner = document.createElement("div");
+          barInner.className = "bar-inner";
+          barInner.style.width = (percent || 2) + "%";
+          barInner.textContent = `${themes[i]} — ${val} (${percent}%)`;
+          bar.appendChild(barInner);
+          container.appendChild(bar);
+        }
+        // Доп. сообщение
+        let res = document.createElement("div");
+        res.style="margin-top:7px;font-size:0.98em;color:#57b359";
+        res.textContent = "Всего голосов: " + total;
+        container.appendChild(res);
       });
     }
 
-    let themes = [];
     onValue(ref(db, "themes"), snap => {
       themes = snap.exists() ? snap.val() : [];
-      setThemes(themes);
+      renderThemes();
       renderResults();
     });
 
     onValue(ref(db, "endTime"), snap => {
       endTime = snap.exists() ? snap.val() : 0;
-      checkVoting();
+      renderThemes();
     });
 
-    setInterval(renderResults, 3000);
+    setInterval(renderResults, 3500);
   </script>
 </head>
 <body>
-  <h2>Онлайн голосование</h2>
+  <h2>Голосование онлайн</h2>
   <div id="themes"></div>
-  <h2>Результаты</h2>
+  <div id="confirmMsg"></div>
+  <h3>Результаты голосования</h3>
   <div id="results"></div>
 </body>
 </html>
