@@ -1,25 +1,32 @@
-<!-- admin.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <title>Админка голосования</title>
   <style>
-    /* Стили для простоты: */
     .hidden {display:none}
     .themeRow {margin: 6px 0;}
+    input[type=password] {padding:5px;}
+    .themeInput {width:300px;}
   </style>
   <script type="module">
-    // Импортируйте firebase, как и раньше
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-    // Ваши настройки Firebase
-    const firebaseConfig = { /* ... тут ваши параметры ... */ };
+    // ВАШИ ДАННЫЕ FIREBASE
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXa2ZCZ8QlSPqXZXWtiAbDJk9HpP4P5A0",
+      authDomain: "opros-abc611-6e34a.firebaseapp.com",
+      databaseURL: "https://opros-abc611-6e34a-default-rtdb.firebaseio.com",
+      projectId: "opros-abc611-6e34a",
+      storageBucket: "opros-abc611-6e34a.firebasestorage.app",
+      messagingSenderId: "892292768205",
+      appId: "1:892292768205:web:b0f3147df004a7ac48a484",
+      measurementId: "G-2EQTN4TGBL"
+    };
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // ------- Авторизация ----------
+    // Авторизация
     let adminOk = false;
     window.checkPass = function() {
       if (document.getElementById('pass').value === 'admin123') {
@@ -34,7 +41,7 @@
       }
     }
 
-    // --------- Темы ----------
+    // Темы
     window.saveThemes = function() {
       const arr = [];
       document.querySelectorAll(".themeInput").forEach(el => arr.push(el.value.trim()));
@@ -68,11 +75,12 @@
       });
     }
 
-    // --------- Таймер ----------
+    // Таймер
     window.saveTimer = function() {
-      // дата-строка или UNIX time в ms
-      let ms = Date.now() + Number(document.getElementById("timerMins").value)*60000;
+      let mins = Number(document.getElementById("timerMins").value);
+      let ms = Date.now() + mins*60000;
       set(ref(db, "endTime"), ms);
+      loadTimer();
     }
     window.loadTimer = function() {
       get(ref(db, "endTime")).then(snap => {
@@ -81,11 +89,19 @@
       });
     }
 
-    // --------- Результаты + сброс ----------
+    // Результаты + сброс
     window.listenResults = function() {
       onValue(ref(db, "votes"), snap => {
         let resDiv = document.getElementById("resultsTable");
-        resDiv.innerHTML = JSON.stringify(snap.val() || {});
+        let arr = snap.exists() ? snap.val() : [];
+        let out = "<b>Голоса:</b><br>";
+        get(ref(db, "themes")).then(tSnap=>{
+          let themes = tSnap.val() || [];
+          themes.forEach((theme, i) => {
+            out += `${theme}: ${arr[i]||0}<br>`;
+          });
+          resDiv.innerHTML = out;
+        });
       });
     }
     window.resetVotes = function() {
@@ -99,13 +115,12 @@
     <input id="pass" type="password" placeholder="Пароль">
     <button onclick="checkPass()">Войти</button>
   </div>
-
   <div id="adminPanel" class="hidden">
-    <h2>Редактировать темы голосования</h2>
+    <h2>Редактировать темы</h2>
     <div id="themesEdit"></div>
     <button onclick="saveThemes()">Сохранить темы</button>
 
-    <h2>Установить таймер (минуты)</h2>
+    <h2>Таймер голосования (минуты)</h2>
     <input type="number" id="timerMins" value="1">
     <button onclick="saveTimer()">Запустить таймер</button>
     <div id="timerStatus"></div>
