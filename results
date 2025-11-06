@@ -6,32 +6,34 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-    // Ваш конфиг
-    const firebaseConfig = { /* ...скопируйте свой конфиг... */ };
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXa2ZCZ8QlSPqXZXWtiAbDJk9HpP4P5A0",
+      authDomain: "opros-abc611-6e34a.firebaseapp.com",
+      databaseURL: "https://opros-abc611-6e34a-default-rtdb.firebaseio.com",
+      projectId: "opros-abc611-6e34a",
+      storageBucket: "opros-abc611-6e34a.firebasestorage.app",
+      messagingSenderId: "892292768205",
+      appId: "1:892292768205:web:b0f3147df004a7ac48a484",
+      measurementId: "G-2EQTN4TGBL"
+    };
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const themes = [
-      "Искусственный интеллект и будущее работы",
-      "Экологичные технологии",
-      "Мобильные приложения для образования",
-      "Личный финансовый менеджмент",
-      "ЗОЖ и физическая активность",
-      "Интернет-безопасность и защита данных"
-    ];
-
     function loadResults() {
-      const resultList = document.getElementById('resultList');
-      resultList.innerHTML = "";
-      let total = 0;
-      themes.forEach((theme, idx) => {
-        const refVotes = ref(db, 'votes/' + idx);
-        get(refVotes).then(snapshot => {
-          let cnt = snapshot.exists() ? snapshot.val() : 0;
-          total += cnt;
-          const div = document.createElement('div');
-          div.textContent = `${theme}: ${cnt}`;
-          resultList.appendChild(div);
+      const themesRef = ref(db, 'themes');
+      get(themesRef).then(snapshot => {
+        let themes = (snapshot.exists() ? snapshot.val() : []);
+        const resultList = document.getElementById('resultList');
+        resultList.innerHTML = "";
+        themes.forEach((theme, idx) => {
+          const refVotes = ref(db, 'votes/' + idx);
+          get(refVotes).then(snapshot2 => {
+            let cnt = snapshot2.exists() ? snapshot2.val() : 0;
+            const div = document.createElement('div');
+            div.textContent = `${theme || "Без названия"}: ${cnt}`;
+            resultList.appendChild(div);
+          });
         });
       });
     }
