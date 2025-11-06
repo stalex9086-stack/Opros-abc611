@@ -549,13 +549,21 @@
             setInterval(renderResults, 3000);
         }
 
-        function resetVoting() {
-            if (confirm('Вы уверены, что хотите сбросить все голоса?')) {
-                localStorage.removeItem('pollVotes');
-                localStorage.removeItem('hasVoted');
-                location.reload();
-            }
-        }
+       function resetVoting() {
+  var password = prompt("Введите пароль для сброса голосования:");
+  if (password !== "admin123") { // Здесь ваш пароль
+    alert("Неверный пароль!");
+    return;
+  }
+  if (confirm("Вы уверены, что хотите сбросить голоса?")) {
+    localStorage.removeItem("pollVotes");
+    localStorage.removeItem("hasVoted");
+    location.reload();
+    initVotes();
+    renderTopics();
+  }
+}
+
 
         initVotes();
         renderTopics();
