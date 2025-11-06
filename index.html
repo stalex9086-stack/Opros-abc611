@@ -3,24 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>Онлайн голосование через QR-код</title>
-  <!-- Chart.js для диаграмм -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Firebase SDK -->
   <script type="module">
+    // Ваш импорт
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-    // Ваши темы
-    const themes = [
-      "Искусственный интеллект и будущее работы",
-      "Экологичные технологии",
-      "Мобильные приложения для образования",
-      "Личный финансовый менеджмент",
-      "ЗОЖ и физическая активность",
-      "Интернет-безопасность и защита данных"
-    ];
-
-    // Ваш firebaseConfig
+    import { getDatabase, ref, push, onValue, set, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    
+    // Конфиг из вашего сообщения
     const firebaseConfig = {
       apiKey: "AIzaSyBXa2ZCZ8QlSPqXZXWtiAbDJk9HpP4P5A0",
       authDomain: "opros-abc611-6e34a.firebaseapp.com",
@@ -32,88 +20,65 @@
       measurementId: "G-2EQTN4TGBL"
     };
 
-    // Инициализация Firebase
+    // Инициализация
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let voteChart;
+    // Темы для голосования
+    const themes = [
+      "Искусственный интеллект и будущее работы",
+      "Экологичные технологии",
+      "Мобильные приложения для образования",
+      "Личный финансовый менеджмент",
+      "ЗОЖ и физическая активность",
+      "Интернет-безопасность и защита данных"
+    ];
 
+    // Вывод тем
     document.addEventListener('DOMContentLoaded', () => {
-      // Темы для голосования
       const themeList = document.getElementById('themeList');
       themes.forEach((theme, idx) => {
         const btn = document.createElement('button');
         btn.textContent = theme;
-        btn.style.margin = '5px';
         btn.onclick = () => vote(idx);
         themeList.appendChild(btn);
       });
       loadResults();
     });
 
+    // Голосование
     function vote(idx) {
       const refVotes = ref(db, 'votes/' + idx);
       get(refVotes).then(snapshot => {
         let cnt = snapshot.exists() ? snapshot.val() : 0;
         set(refVotes, cnt + 1);
-      }).then(() => {
-        alert("Спасибо, ваш голос учтён!");
-        loadResults();
-      });
+      }).then(loadResults);
+      alert("Спасибо, ваш голос учтен!");
     }
 
-    // Диаграмма Chart.js
-    function renderChart(votesArr) {
-      const ctx = document.getElementById('voteChart').getContext('2d');
-      if (voteChart) {
-        voteChart.data.datasets[0].data = votesArr;
-        voteChart.update();
-        return;
-      }
-      voteChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: themes,
-          datasets: [{
-            label: 'Голоса',
-            data: votesArr,
-            backgroundColor: [
-              "#4e79a7", "#f28e2b", "#e15759",
-              "#76b7b2", "#59a14f", "#edc949"
-            ],
-          }]
-        },
-        options: {
-          plugins: {
-            legend: { display: false }
-          },
-          scales: {
-            y: { beginAtZero: true }
-          }
-        }
-      });
-    }
-
+    // Загрузка и вывод результатов
     function loadResults() {
-      Promise.all(themes.map((_, idx) =>
-        get(ref(db, 'votes/' + idx)).then(snap => snap.exists() ? snap.val() : 0)
-      )).then(voteCounts => {
-        renderChart(voteCounts);
+      const resultList = document.getElementById('resultList');
+      resultList.innerHTML = "";
+      themes.forEach((theme, idx) => {
+        const refVotes = ref(db, 'votes/' + idx);
+        get(refVotes).then(snapshot => {
+          let cnt = snapshot.exists() ? snapshot.val() : 0;
+          const div = document.createElement('div');
+          div.textContent = theme + ": " + cnt;
+          resultList.appendChild(div);
+        });
       });
     }
+
+    // Авто-обновление
     setInterval(loadResults, 3000);
   </script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 30px; }
-    button { font-size: 16px; padding: 10px 20px; }
-    h2 { margin-top: 40px; }
-    #voteChart { margin-top: 30px; }
-  </style>
 </head>
 <body>
-  <h1>Онлайн голосование по темам</h1>
+  <h2>Онлайн голосование по темам</h2>
   <div id="themeList"></div>
-  <h2>Результаты (диаграмма):</h2>
-  <canvas id="voteChart" width="600" height="320"></canvas>
+  <h2>Результаты:</h2>
+  <div id="resultList"></div>
 </body>
 </html>
