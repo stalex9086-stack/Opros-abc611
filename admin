@@ -1,0 +1,120 @@
+<!-- admin.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Админка голосования</title>
+  <style>
+    /* Стили для простоты: */
+    .hidden {display:none}
+    .themeRow {margin: 6px 0;}
+  </style>
+  <script type="module">
+    // Импортируйте firebase, как и раньше
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    // Ваши настройки Firebase
+    const firebaseConfig = { /* ... тут ваши параметры ... */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // ------- Авторизация ----------
+    let adminOk = false;
+    window.checkPass = function() {
+      if (document.getElementById('pass').value === 'admin123') {
+        document.getElementById('adminPanel').classList.remove('hidden');
+        document.getElementById('loginPanel').classList.add('hidden');
+        adminOk = true;
+        renderThemes();
+        listenResults();
+        loadTimer();
+      } else {
+        alert('Пароль неверный!');
+      }
+    }
+
+    // --------- Темы ----------
+    window.saveThemes = function() {
+      const arr = [];
+      document.querySelectorAll(".themeInput").forEach(el => arr.push(el.value.trim()));
+      set(ref(db, "themes"), arr);
+    }
+    window.renderThemes = function() {
+      get(ref(db, "themes")).then(snap => {
+        let arr = snap.exists() ? snap.val() : [];
+        let target = document.getElementById("themesEdit");
+        target.innerHTML = "";
+        arr.forEach((theme, idx) => {
+          target.innerHTML += `<div class="themeRow">
+            <input value="${theme}" class="themeInput">
+            <button onclick="removeTheme(${idx})">⛔</button>
+          </div>`;
+        });
+        target.innerHTML += `<button onclick="addTheme()">Добавить тему</button>`;
+      });
+    }
+    window.addTheme = function() {
+      document.getElementById("themesEdit").innerHTML += `<div class="themeRow">
+        <input value="" class="themeInput">
+        <button style="visibility:hidden" disabled>⛔</button></div>`;
+    }
+    window.removeTheme = function(idx) {
+      get(ref(db, "themes")).then(snap => {
+        let arr = snap.val();
+        arr.splice(idx,1);
+        set(ref(db, "themes"), arr);
+        renderThemes();
+      });
+    }
+
+    // --------- Таймер ----------
+    window.saveTimer = function() {
+      // дата-строка или UNIX time в ms
+      let ms = Date.now() + Number(document.getElementById("timerMins").value)*60000;
+      set(ref(db, "endTime"), ms);
+    }
+    window.loadTimer = function() {
+      get(ref(db, "endTime")).then(snap => {
+        let end = snap.exists() ? new Date(snap.val()) : "нет таймера";
+        document.getElementById("timerStatus").textContent = "Текущий таймер: " + end;
+      });
+    }
+
+    // --------- Результаты + сброс ----------
+    window.listenResults = function() {
+      onValue(ref(db, "votes"), snap => {
+        let resDiv = document.getElementById("resultsTable");
+        resDiv.innerHTML = JSON.stringify(snap.val() || {});
+      });
+    }
+    window.resetVotes = function() {
+      set(ref(db, "votes"), {});
+    }
+  </script>
+</head>
+<body>
+  <div id="loginPanel">
+    <h2>Вход для организатора</h2>
+    <input id="pass" type="password" placeholder="Пароль">
+    <button onclick="checkPass()">Войти</button>
+  </div>
+
+  <div id="adminPanel" class="hidden">
+    <h2>Редактировать темы голосования</h2>
+    <div id="themesEdit"></div>
+    <button onclick="saveThemes()">Сохранить темы</button>
+
+    <h2>Установить таймер (минуты)</h2>
+    <input type="number" id="timerMins" value="1">
+    <button onclick="saveTimer()">Запустить таймер</button>
+    <div id="timerStatus"></div>
+
+    <h2>Результаты голосования</h2>
+    <div id="resultsTable"></div>
+
+    <h2>Сбросить голоса</h2>
+    <button onclick="resetVotes()">Сбросить</button>
+  </div>
+</body>
+</html>
