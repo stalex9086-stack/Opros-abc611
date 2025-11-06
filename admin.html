@@ -2,17 +2,24 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Админка голосования</title>
+  <title>Администрирование голосования</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    .hidden {display:none}
-    .themeRow {margin: 6px 0;}
-    input[type=password] {padding:5px;}
-    .themeInput {width:300px;}
+    body {background:#f4f9fe; font-family:'Segoe UI',Arial,sans-serif; color:#132; margin:22px;}
+    .panel {background:#fff;box-shadow:0 2px 12px #e3eaf8a0; border-radius:11px; padding:24px 32px;max-width:480px;margin:auto;margin-bottom:28px;}
+    .panel h3 {margin-top:0;}
+    .themeRow { margin:6px 0;display:flex;align-items:center;}
+    .themeInput {width:290px;padding:5px;font-size:1em;border-radius:6px;border:1px solid #e3e8f7;}
+    .admin-btn {margin-top:12px;background:#38bdf8;color:#fff;padding:10px 24px;border:none;font-size:1em;border-radius:7px;cursor:pointer;}
+    .admin-btn:hover {background:#089cff;}
+    .results-bar {background: #e3e8f7; border-radius:10px; height:22px; margin-bottom:7px;overflow:hidden;display:flex;align-items:center;}
+    .bar-inner {background: #38bdf8; color: white; font-weight:bold; height:100%;padding-left:9px; border-radius:10px;transition: width .36s;display: flex;align-items: center;}
+    input[type=password]{padding:6px;font-size:1em;border-radius:6px;border:1px solid #b8daff;}
+    .hidden{display:none;}
   </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-    // ВАШИ ДАННЫЕ FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyBXa2ZCZ8QlSPqXZXWtiAbDJk9HpP4P5A0",
       authDomain: "opros-abc611-6e34a.firebaseapp.com",
@@ -25,62 +32,56 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
-    // Авторизация
+    let themes = [];
     let adminOk = false;
+
     window.checkPass = function() {
-      if (document.getElementById('pass').value === 'admin123') {
-        document.getElementById('adminPanel').classList.remove('hidden');
+      if(document.getElementById('pass').value==="admin123"){
         document.getElementById('loginPanel').classList.add('hidden');
-        adminOk = true;
-        renderThemes();
-        listenResults();
-        loadTimer();
-      } else {
-        alert('Пароль неверный!');
-      }
+        document.getElementById('adminPanel').classList.remove('hidden');
+        renderThemes(); listenResults(); loadTimer();
+      }else alert('Пароль неверный!');
     }
 
-    // Темы
     window.saveThemes = function() {
       const arr = [];
       document.querySelectorAll(".themeInput").forEach(el => arr.push(el.value.trim()));
       set(ref(db, "themes"), arr);
+      setTimeout(()=>renderThemes(),600);
     }
     window.renderThemes = function() {
       get(ref(db, "themes")).then(snap => {
-        let arr = snap.exists() ? snap.val() : [];
+        themes = snap.exists() ? snap.val() : [];
         let target = document.getElementById("themesEdit");
         target.innerHTML = "";
-        arr.forEach((theme, idx) => {
+        themes.forEach((theme, idx) => {
           target.innerHTML += `<div class="themeRow">
             <input value="${theme}" class="themeInput">
-            <button onclick="removeTheme(${idx})">⛔</button>
+            <button class="admin-btn" style="padding:3px 14px;font-size:0.95em;margin-left:7px;" onclick="removeTheme(${idx})">⛔</button>
           </div>`;
         });
-        target.innerHTML += `<button onclick="addTheme()">Добавить тему</button>`;
+        target.innerHTML += `<button class="admin-btn" style="margin-top:8px" onclick="addTheme()">Добавить тему</button>`;
       });
     }
     window.addTheme = function() {
-      document.getElementById("themesEdit").innerHTML += `<div class="themeRow">
+      let target = document.getElementById("themesEdit");
+      target.innerHTML += `<div class="themeRow">
         <input value="" class="themeInput">
-        <button style="visibility:hidden" disabled>⛔</button></div>`;
+        <button style="visibility:hidden" disabled>⛔</button>
+      </div>`;
     }
     window.removeTheme = function(idx) {
-      get(ref(db, "themes")).then(snap => {
-        let arr = snap.val();
-        arr.splice(idx,1);
-        set(ref(db, "themes"), arr);
-        renderThemes();
-      });
+      let arr = themes.slice();
+      arr.splice(idx,1);
+      set(ref(db, "themes"), arr);
+      setTimeout(()=>renderThemes(),500);
     }
-
-    // Таймер
     window.saveTimer = function() {
       let mins = Number(document.getElementById("timerMins").value);
+      if(isNaN(mins)||mins<=0)return alert("Введите срок в минутах!");
       let ms = Date.now() + mins*60000;
       set(ref(db, "endTime"), ms);
-      loadTimer();
+      setTimeout(()=>loadTimer(),500);
     }
     window.loadTimer = function() {
       get(ref(db, "endTime")).then(snap => {
@@ -88,19 +89,30 @@
         document.getElementById("timerStatus").textContent = "Текущий таймер: " + end;
       });
     }
-
-    // Результаты + сброс
     window.listenResults = function() {
       onValue(ref(db, "votes"), snap => {
-        let resDiv = document.getElementById("resultsTable");
         let arr = snap.exists() ? snap.val() : [];
-        let out = "<b>Голоса:</b><br>";
         get(ref(db, "themes")).then(tSnap=>{
-          let themes = tSnap.val() || [];
-          themes.forEach((theme, i) => {
-            out += `${theme}: ${arr[i]||0}<br>`;
-          });
-          resDiv.innerHTML = out;
+          let themesArr = tSnap.val() || [];
+          let container = document.getElementById("resultsTable");
+          container.innerHTML = "";
+          let total = 0;
+          for(let i=0;i<themesArr.length;++i)total+=arr[i]||0;
+          for(let i=0;i<themesArr.length;++i){
+            let val = arr[i]||0, percent=total?Math.round(val*100/total):0;
+            let bar = document.createElement('div');
+            bar.className="results-bar";
+            let barInner = document.createElement('div');
+            barInner.className = "bar-inner";
+            barInner.style.width=(percent||2)+"%";
+            barInner.textContent=`${themesArr[i]} — ${val} (${percent}%)`;
+            bar.appendChild(barInner);
+            container.appendChild(bar);
+          }
+          let res = document.createElement("div");
+          res.style="margin-top:7px;font-size:0.98em;color:#57b359";
+          res.textContent="Всего голосов: "+total;
+          container.appendChild(res);
         });
       });
     }
@@ -110,26 +122,22 @@
   </script>
 </head>
 <body>
-  <div id="loginPanel">
-    <h2>Вход для организатора</h2>
-    <input id="pass" type="password" placeholder="Пароль">
-    <button onclick="checkPass()">Войти</button>
+  <div id="loginPanel" class="panel">
+    <h2>Вход в админку</h2>
+    <input id="pass" type="password" placeholder="Пароль для организатора">
+    <button class="admin-btn" onclick="checkPass()">Войти</button>
   </div>
-  <div id="adminPanel" class="hidden">
-    <h2>Редактировать темы</h2>
+  <div id="adminPanel" class="panel hidden">
+    <h3>Темы голосования (редактировать)</h3>
     <div id="themesEdit"></div>
-    <button onclick="saveThemes()">Сохранить темы</button>
-
-    <h2>Таймер голосования (минуты)</h2>
-    <input type="number" id="timerMins" value="1">
-    <button onclick="saveTimer()">Запустить таймер</button>
-    <div id="timerStatus"></div>
-
-    <h2>Результаты голосования</h2>
+    <button class="admin-btn" onclick="saveThemes()">Сохранить темы</button>
+    <h3 style="margin-top:24px;">Таймер голосования</h3>
+    <input type="number" id="timerMins" value="3">
+    <button class="admin-btn" onclick="saveTimer()">Установить (минут)</button>
+    <div id="timerStatus" style="margin-top:9px;"></div>
+    <h3 style="margin-top:24px;">Результаты</h3>
     <div id="resultsTable"></div>
-
-    <h2>Сбросить голоса</h2>
-    <button onclick="resetVotes()">Сбросить</button>
+    <button class="admin-btn" style="background:#d72740;margin-top:17px;" onclick="resetVotes()">Сбросить голоса</button>
   </div>
 </body>
 </html>
