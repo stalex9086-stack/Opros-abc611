@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Результаты голосования</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    // Ваш конфиг
+    const firebaseConfig = { /* ...скопируйте свой конфиг... */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const themes = [
+      "Искусственный интеллект и будущее работы",
+      "Экологичные технологии",
+      "Мобильные приложения для образования",
+      "Личный финансовый менеджмент",
+      "ЗОЖ и физическая активность",
+      "Интернет-безопасность и защита данных"
+    ];
+
+    function loadResults() {
+      const resultList = document.getElementById('resultList');
+      resultList.innerHTML = "";
+      let total = 0;
+      themes.forEach((theme, idx) => {
+        const refVotes = ref(db, 'votes/' + idx);
+        get(refVotes).then(snapshot => {
+          let cnt = snapshot.exists() ? snapshot.val() : 0;
+          total += cnt;
+          const div = document.createElement('div');
+          div.textContent = `${theme}: ${cnt}`;
+          resultList.appendChild(div);
+        });
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadResults);
+    setInterval(loadResults, 3000);
+  </script>
+</head>
+<body>
+  <h2>Результаты голосования</h2>
+  <div id="resultList"></div>
+</body>
+</html>
