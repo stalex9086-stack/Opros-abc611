@@ -154,3 +154,92 @@
       get(ref(db, "themes")).then(snap => {
         themes = snap.exists() ? snap.val() : [];
         let grid = document.getElementById("topicsGrid");
+        grid.innerHTML = "";
+        themes.forEach((theme, idx) => {
+          grid.innerHTML += `<div class="topic-card">
+            <input value="${theme}" class="themeInput">
+            <button class="remove-btn" onclick="removeTheme(${idx})">✖</button>
+          </div>`;
+        });
+        grid.innerHTML += `<button class="add-btn" onclick="addTheme()">+ Добавить тему</button>`;
+      });
+    }
+    window.addTheme = function() {
+      let grid = document.getElementById("topicsGrid");
+      grid.innerHTML += `<div class="topic-card"><input value="" class="themeInput"><button class="remove-btn" style="visibility:hidden" disabled>✖</button></div>`;
+    }
+    window.removeTheme = function(idx) {
+      let arr = themes.slice(); arr.splice(idx,1);
+      set(ref(db, "themes"), arr);
+      setTimeout(()=>renderThemes(),500);
+    }
+    window.saveTimer = function() {
+      let mins = Number(document.getElementById("timerMins").value);
+      if(isNaN(mins)||mins<=0)return alert("Введите срок в минутах!");
+      let ms = Date.now() + mins*60000;
+      set(ref(db, "endTime"), ms);
+      setTimeout(()=>loadTimer(),500);
+    }
+    window.loadTimer = function() {
+      get(ref(db, "endTime")).then(snap => {
+        let end = snap.exists() ? new Date(snap.val()) : "нет таймера";
+        document.getElementById("timerStatus").textContent = "Текущий таймер: " + end;
+      });
+    }
+    window.listenResults = function() {
+      onValue(ref(db, "votes"), snap => {
+        let arr = snap.exists() ? snap.val() : [];
+        get(ref(db, "themes")).then(tSnap=>{
+          let themesArr = tSnap.val() || [];
+          let container = document.getElementById("resultsList");
+          container.innerHTML = "";
+          let total = 0;
+          for(let i=0;i<themesArr.length;++i)total+=arr[i]||0;
+          for(let i=0;i<themesArr.length;++i){
+            let val = arr[i]||0, percent=total?Math.round(val*100/total):0;
+            let barClass = "bar-fill"+((i%6)+1);
+            container.innerHTML += `
+              <div class="result-item">
+                <div><strong>${themesArr[i]}</strong> — <span style="color:${percent>0?'var(--color-accent-'+((i%6)+1)+')':'#aaa'};font-weight:bold">${val} (${percent}%)</span></div>
+                <div class="progress-bar"><div class="bar-fill ${barClass}" style="width:${percent||2}%"></div></div>
+              </div>
+            `;
+          }
+          let res = document.getElementById("totalVotes");
+          res.textContent="Всего голосов: "+total;
+        });
+      });
+    }
+    window.resetVotes = function() {
+      set(ref(db, "votes"), {});
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>Администрирование голосования</h1>
+    <div id="loginPanel" class="panel">
+      <h2>Вход</h2>
+      <input id="pass" type="password" placeholder="Пароль организатора">
+      <button class="admin-btn" onclick="checkPass()">Войти</button>
+    </div>
+    <div id="adminPanel" class="panel hidden">
+      <h3>Темы (редактировать)</h3>
+      <div class="topics-grid" id="topicsGrid"></div>
+      <button class="admin-btn" style="margin-top:14px" onclick="saveThemes()">Сохранить темы</button>
+      <div class="timer-panel">
+        <h3 style="margin:0;">Таймер (минут):</h3>
+        <input type="number" id="timerMins" value="3">
+        <button class="admin-btn" onclick="saveTimer()">Установить</button>
+        <span id="timerStatus"></span>
+      </div>
+      <h3>Результаты</h3>
+      <div class="results-list" id="resultsList"></div>
+      <div id="totalVotes" style="margin-top:9px;color:#21808d;font-size:1em"></div>
+      <div class="reset-panel">
+        <button class="reset-btn" onclick="resetVotes()">Сбросить голоса</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
