@@ -2,156 +2,82 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Голосование онлайн — Выберите тему</title>
+  <title>Онлайн Голосование</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body {
-      background: #f8fafc;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      color:#233;
-      margin:20px;
+    body { background: #f9faf5; font-family: 'Inter', Arial, sans-serif; color: #223; padding: 0 0 40px 0;}
+    h1 { font-size:2.2em; text-align:center; margin:38px 0 0 0; font-weight:600;}
+    .subtitle {text-align:center; color:#537; margin:9px auto 21px auto;}
+    .tabs {text-align:center; margin-bottom:17px;}
+    .tab-btn {
+      background: #287b7c; color: #fff; border: none; border-radius:9px;
+      padding:9px 28px; font-size:1em; margin-right:10px; cursor:pointer;
+      font-weight:500; margin-bottom:2px;
     }
-    h2,h3 {margin-top:1.2em;}
-    #themes {display: flex; flex-wrap: wrap; gap: 14px; justify-content: center;}
-    .theme-card {
-      background: #fff;
-      border-radius: 13px;
-      box-shadow: 0 2px 16px #e6e9ee75;
-      padding: 20px 30px;
-      font-size: 1.1em;
-      cursor:pointer;
-      min-width:220px;
-      transition: box-shadow 0.15s;
-      border: 2px solid #e3e8f7;
-      text-align:center;
+    .tab-btn:last-child {background:#eee; color:#29b2b2;}
+    .tab-btn.active {background:#0a9698; color:#fff;}
+    .grid {display:grid;grid-template-columns:repeat(2,minmax(270px,1fr)); gap:30px; justify-content:center; max-width:740px; margin:0 auto 24px auto;}
+    @media(max-width:650px) { .grid{grid-template-columns:1fr;} }
+    .card {
+      background:#fff; border-radius:14px; box-shadow: 0 2px 9px #e8efee60;
+      border:2px solid #b8daff; padding:22px 18px; font-size:1.05em; min-height:90px;
+      display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;
     }
-    .theme-card:hover {
-      box-shadow: 0 4px 28px #b7bcc6a0;
-      border:2px solid #38bdf8;
+    .card.theme1 { border-color:#3b82f6;}
+    .card.theme2 { border-color:#f59e0b;}
+    .card.theme3 { border-color:#22c55e;}
+    .card.theme4 { border-color:#ef4444;}
+    .card.theme5 { border-color:#9333ea;}
+    .card.theme6 { border-color:#f97316;}
+    .card .t-num { font-weight:600; font-size:1em; margin-bottom:7px;}
+    .card .t-name { font-size:1.13em;}
+    .vote-btn {
+      display:block; width:96%; margin:0 auto 12px auto; background:#8adbe3;
+      color:#1a2; border:none; border-radius:11px; padding:13px 0; font-size:1.09em;
+      cursor:pointer; font-weight:500; margin-top:16px;
     }
-    #confirmMsg {text-align:center; margin-top:18px; font-size:1.15em; color:#38bdf8;}
-    .results-bar {
-      background: #e3e8f7;
-      border-radius:10px;
-      height:22px;
-      margin-bottom:7px;
-      overflow:hidden;
-      display: flex;
-      align-items:center;
-    }
-    .bar-inner {
-      background: #38bdf8;
-      color: white;
-      font-weight:bold;
-      height:100%;
-      padding-left:9px;
-      border-radius:10px;
-      transition: width 0.4s;
-      display: flex;
-      align-items: center;
+    .vote-btn:disabled {background:#b6dbe3; color:#a6a;}
+    .msg {
+      background:#ecfdf5; border:1px solid #bbf7d0; border-radius:11px;
+      text-align:center; padding:10px; margin:9px auto 0 auto; max-width:500px; color:#177850;
+      font-size:1.12em;
     }
   </style>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-    const firebaseConfig = {
-      apiKey: "AIzaSyBXa2ZCZ8QlSPqXZXWtiAbDJk9HpP4P5A0",
-      authDomain: "opros-abc611-6e34a.firebaseapp.com",
-      databaseURL: "https://opros-abc611-6e34a-default-rtdb.firebaseio.com",
-      projectId: "opros-abc611-6e34a",
-      storageBucket: "opros-abc611-6e34a.firebasestorage.app",
-      messagingSenderId: "892292768205",
-      appId: "1:892292768205:web:b0f3147df004a7ac48a484",
-      measurementId: "G-2EQTN4TGBL"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    let themes = [];
-    let endTime = 0;
-    let voted = localStorage.getItem("voted") === "true";
-
-    function renderThemes() {
-      const container = document.getElementById("themes");
-      container.innerHTML = "";
-      if (voted) {
-        document.getElementById("confirmMsg").textContent = "Спасибо! Ваш голос учтен.";
-        return;
-      }
-      // Таймер
-      if (Date.now() > endTime && endTime > 0) {
-        container.innerHTML = "<b>Время голосования истекло</b>";
-        return;
-      }
-      themes.forEach((theme, idx) => {
-        let card = document.createElement("div");
-        card.className = "theme-card";
-        card.textContent = theme;
-        card.onclick = () => vote(idx);
-        container.appendChild(card);
-      });
-      document.getElementById("confirmMsg").textContent = "";
-    }
-
-    function vote(idx) {
-      if (voted) return;
-      if (Date.now() > endTime && endTime > 0) return;
-      get(ref(db, "votes/" + idx)).then(snapshot => {
-        let cnt = snapshot.exists() ? snapshot.val() : 0;
-        set(ref(db, "votes/" + idx), cnt + 1);
-      });
-      localStorage.setItem("voted", "true");
-      voted = true;
-      renderThemes();
-    }
-
-    function renderResults() {
-      get(ref(db, "votes")).then(votesSnap => {
-        let votesArr = votesSnap.exists() ? votesSnap.val() : [];
-        const container = document.getElementById("results");
-        container.innerHTML = "";
-        // Подсчитать итог
-        let total = 0;
-        for (let i = 0; i < themes.length; ++i) total += votesArr[i] || 0;
-        for (let i = 0; i < themes.length; ++i) {
-          let val = votesArr[i] || 0;
-          let percent = total ? Math.round(val * 100 / total) : 0;
-          let bar = document.createElement("div");
-          bar.className = "results-bar";
-          let barInner = document.createElement("div");
-          barInner.className = "bar-inner";
-          barInner.style.width = (percent || 2) + "%";
-          barInner.textContent = `${themes[i]} — ${val} (${percent}%)`;
-          bar.appendChild(barInner);
-          container.appendChild(bar);
-        }
-        // Доп. сообщение
-        let res = document.createElement("div");
-        res.style="margin-top:7px;font-size:0.98em;color:#57b359";
-        res.textContent = "Всего голосов: " + total;
-        container.appendChild(res);
-      });
-    }
-
-    onValue(ref(db, "themes"), snap => {
-      themes = snap.exists() ? snap.val() : [];
-      renderThemes();
-      renderResults();
-    });
-
-    onValue(ref(db, "endTime"), snap => {
-      endTime = snap.exists() ? snap.val() : 0;
-      renderThemes();
-    });
-
-    setInterval(renderResults, 3500);
-  </script>
 </head>
 <body>
-  <h2>Голосование онлайн</h2>
-  <div id="themes"></div>
-  <div id="confirmMsg"></div>
-  <h3>Результаты голосования</h3>
-  <div id="results"></div>
+  <h1>Онлайн Голосование</h1>
+  <div class="subtitle">Выберите тему, которая вам наиболее интересна</div>
+  <div class="tabs">
+    <button class="tab-btn active">Голосование</button>
+    <button class="tab-btn">Результаты</button>
+  </div>
+  <div class="grid">
+    <div class="card theme1">
+      <span class="t-num">Тема 1</span>
+      <span class="t-name">Искусственный интеллект и будущее работы</span>
+    </div>
+    <div class="card theme2">
+      <span class="t-num">Тема 2</span>
+      <span class="t-name">Экологичные технологии</span>
+    </div>
+    <div class="card theme3">
+      <span class="t-num">Тема 3</span>
+      <span class="t-name">Мобильные приложения для образования</span>
+    </div>
+    <div class="card theme4">
+      <span class="t-num">Тема 4</span>
+      <span class="t-name">Личный финансовый менеджмент</span>
+    </div>
+    <div class="card theme5">
+      <span class="t-num">Тема 5</span>
+      <span class="t-name">ЗОЖ и физическая активность</span>
+    </div>
+    <div class="card theme6">
+      <span class="t-num">Тема 6</span>
+      <span class="t-name">Интернет-безопасность и защита данных</span>
+    </div>
+  </div>
+  <button class="vote-btn">Проголосовать</button>
+  <div class="msg">Вы уже проголосовали! Спасибо за участие.</div>
 </body>
 </html>
